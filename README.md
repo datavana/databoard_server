@@ -2,6 +2,8 @@
 
 The repository contains the server component of the Databoard Service.
 
+See the meta repository https://github.com/datavana/databoard for on overview of the components.
+
 ## Getting started locally
 
 1. Configure the environment:  
