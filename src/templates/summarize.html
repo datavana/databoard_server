@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <p>
+        Live is too short for long stories. I will shorten your long story.
+    </p>
+
+    <form action="/summarize" method="post">
+        <textarea id="search-input" name="query" placeholder="Enter your long story here" required rows="10" cols="50">{{ query }}</textarea>
+        <div>
+            <button type="submit" class="wide"><i class="fas fa-compress"></i></button>
+        </div>
+    </form>
+
+    {% if status %}
+        <p class="status">{{ status }}</p>
+    {% endif %}
+
+    {% if answer %}
+            <p class="answer">
+                {{ answer }}
+            </p>
+    {% endif %}
+
+
+
+    <!-- JavaScript to focus and select the input field on page load -->
+    <script>
+        window.onload = function() {
+            let input = document.getElementById('search-input');
+            input.focus();
+            input.select();
+        };
+    </script>
+{% endblock %}

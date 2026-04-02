@@ -1,0 +1,132 @@
+services:
+  nginx:
+      build:
+        context: .
+        dockerfile: container/nginx/Dockerfile
+      container_name: db_nginx
+      ports:
+        - "80:80"
+        - "443:443"
+      networks:
+        - databoard
+      depends_on:
+        - app
+
+  app:
+      build:
+        context: ..
+        dockerfile: databoard_server/container/fastapi/Dockerfile
+      container_name: db_fastapi
+      restart: unless-stopped
+      volumes:
+          - "./src:/app/src/"
+          - "./data:/app/data/"
+          - "../databoard_core:/app/databoard_core/"
+      networks:
+          - databoard
+      expose:
+          - "8000"
+      ports:
+          - "8000:8000"
+      environment:
+          - RABBITMQ_HOST=rabbitmq
+          - RABBITMQ_PORT=5672
+          - DATABOARD_GPT_SERVER=${DATABOARD_GPT_SERVER}
+          - DATABOARD_GPT_ACCESSTOKEN=${DATABOARD_GPT_ACCESSTOKEN}
+          - DATABOARD_OLLAMA_SERVER="ollama"
+          - DATABOARD_USERFILE=/app/data/.users/users.json
+      depends_on:
+        - rabbitmq
+
+  celery:
+      build:
+        context: ..
+        dockerfile: databoard_server/container/celery/Dockerfile
+      container_name: db_celery
+      depends_on:
+        - app
+        - rabbitmq
+      environment:
+        - RABBITMQ_HOST=rabbitmq
+        - RABBITMQ_PORT=5672
+        - DATABOARD_GPT_SERVER=${DATABOARD_GPT_SERVER}
+        - DATABOARD_GPT_ACCESSTOKEN=${DATABOARD_GPT_ACCESSTOKEN}
+      volumes:
+        - "./src:/app/src/"
+        - "./data:/app/data/"
+        - "../databoard_core:/app/databoard_core/"
+      networks:
+        - databoard
+
+  rabbitmq:
+      image: "rabbitmq:4.1-rc-management"
+      container_name: db_rabbitmq
+      networks:
+        - databoard
+      ports:
+        - "5672:5672"
+        - "15672:15672"
+      environment:
+        RABBITMQ_DEFAULT_USER: guest
+        RABBITMQ_DEFAULT_PASS: guest
+      restart: unless-stopped
+
+  ollama:
+      image: ollama/ollama
+      container_name: db_ollama
+      networks:
+        - databoard
+      ports:
+          - "11434:11434"
+      volumes:
+          #- ./container/ollama/data:/root/.ollama
+          - ollama:/root/.ollama
+#      deploy:
+#        resources:
+#          reservations:
+#            devices:
+#              - capabilities: ["gpu"]
+      restart: unless-stopped
+
+  webui:
+      container_name: db_webui
+      image: ghcr.io/open-webui/open-webui:main
+      ports:
+          - "8282:8080"
+      extra_hosts:
+          - "host.docker.internal:host-gateway"
+      volumes:
+          #- ./container/webui/data:/app/backend/data
+          - ollama:/app/backend/data
+      environment:
+          - WEBUI_AUTH=false
+      deploy:
+          replicas: 0
+      networks:
+        - databoard
+      restart: unless-stopped
+      depends_on:
+          - ollama
+
+  qdrant:
+      container_name: db_qdrant
+      image: qdrant/qdrant:latest
+      networks:
+        - databoard
+      ports:
+        - "6333:6333"
+        - "6334:6334"
+      volumes:
+          #- ./container/qdrant/data:/qdrant/storage
+          - qdrant:/qdrant/storage
+      deploy:
+          replicas: 0
+
+volumes:
+  ollama:
+  qdrant:
+  webui:
+
+networks:
+  databoard:
+    driver: bridge

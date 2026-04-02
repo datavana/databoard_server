@@ -1,0 +1,164 @@
+/* Common */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+h2 {
+    padding:0.2em;
+    margin:1.5em 0 0.5em 0;
+    background-color: #4caf50;
+    color: white;
+    font-weight: normal;
+}
+
+ul {
+    padding: 0 0 0 1.5em;
+}
+
+ul li {
+    padding: 0 1em 0.5em 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  color: #333;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+tbody tr:hover {
+  background-color: #f1f7ff;
+}
+
+pre {
+  display: block;
+  max-height: 20em;
+  overflow: auto;
+  padding: 1em;
+  background-color: #f5f5f5;
+  border: 1px solid #ccc;
+  white-space: pre;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  border-radius: 4px;
+}
+
+/* Layout */
+header {
+    background-color: #4CAF50;
+    padding: 1.5em;
+    color: white;
+    display: flex;
+}
+
+header h1 {
+    flex: 1;
+    margin:0;
+    font-size: 2em;
+}
+
+header div {
+    line-height: 2.3em;
+}
+
+main {
+    padding: 1.5em;
+    max-width: 40em;
+}
+
+form {
+    max-width: 20em;
+    display: flex;
+    flex-direction: column;
+}
+
+input[type="password"],
+input[type="text"] {
+    padding: 10px;
+    margin-bottom: 1em;
+}
+
+textarea, textarea:focus, textarea:focus-visible, textarea:active {
+  width: 30em;
+  height: 15em;
+  border:0;
+  padding:0;
+  background-color: beige;
+  outline:0;
+}
+
+button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+button.wide {
+    width:30em;
+}
+
+@font-face {
+    font-family: 'FontAwesome';
+    src: url('/static/fonts/fa-solid-900.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+.fas {
+    font-family: 'FontAwesome';
+    font-weight: normal;
+    font-style: normal;
+}
+
+.fa-search:before {
+    content: '\f002';  /* Unicode for the search icon in Font Awesome */
+}
+
+.fa-compress:before {
+    content: '\f066';  /* Unicode for the search icon in Font Awesome */
+}
+
+
+p.answer {
+    max-width:30em;
+    max-height: 20em;
+    overflow: auto;
+    background-color: gold;   /* Golden background */
+    color: black;             /* Black text color */
+    padding: 10px;            /* Add some padding */
+    border-radius: 5px;       /* Rounded corners */
+    font-weight: bold;        /* Bold text */
+}
+
+p.status {
+    background-color: mediumvioletred;
+    color: white;             /* Black text color */
+    padding: 10px;            /* Add some padding */
+    border-radius: 5px;       /* Rounded corners */
+}

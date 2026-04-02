@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+{% raw %}
+<p>
+With the datavana databoard service you can easily feed content into an LLM for automated analyses:
+</p>
+<ul>
+    <li><b>📄 SummaryWorkflow</b>: Used for qualitative content analysis approaches.
+        Summaries can, for example, be single words (topics, open categories) or contain multiple sentences (abstracts).
+        If you provide categories, one summary or keyword is returned for each category.
+    </li>
+    <li><b>🏷️ CodingWorkflow</b>: Assign predefined categories to a text, i.e. coding in the sense of quantitative content analysis. You provide a codebook with category name, description, and optionally examples.
+     Depending on your settings, the workflow will return one or multiple matching categories.</li>
+    <li><b>🖍️ AnnoWorkflow</b>: Add annotations, for example, to extract person or place names. According to your rule set, the matching text segments are enclosed in XML tags.</li>
+    <li><b>🧩 TripleWorkflow</b>: Extract propositions in a text. The workflow returns statements for each sentence in the input text. Each statement consists of a subject-predicate-object triple. Such a structure
+     is, for example, used for knowledge graphs (RDF).
+     </li>
+</ul>
+<p>
+    The databoard service generates prompts from templates and inserts your data and rules into the prompts.
+    Prompts are posted one by one to the University of Münster UniGPT service (by now Llama-3.3-70B).
+    Results are parsed and returned as structured JSON data.
+    To work with raw LLM prompts and results, provide your own prompt templates and bypass pre- and postprocessing with the summary workflow.
+</p>
+<p>
+Contact the <a href="https://www.uni-muenster.de/Kowi/personen/jakob-juenger.shtml">Digital Media & Computational Methods research unit</a> to get a user account for the service.
+</p>
+
+<h2>How to prepare your data?</h2>
+
+<p>
+    We recommend to prepare your input data as a CSV file.
+    The CSV file should contain your input in the text column.
+    <table>
+        <thead>
+        <tr>
+            <th>case</th>
+            <th>text</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>1</td>
+            <td>The Beatles, Hey Jude, 1968</td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td>Michael Jackson, Thriller, 1982</td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>Queen, Bohemian Rhapsody, 1975</td>
+        </tr>
+        <tr>
+            <td>4</td>
+            <td>Adele, Rolling in the Deep, 2010</td>
+        </tr>
+        <tr>
+            <td>5</td>
+            <td>Bob Dylan, Like a Rolling Stone, 1965</td>
+        </tr>
+        <tr>
+            <td>6</td>
+            <td>Nirvana, Smells Like Teen Spirit, 1991</td>
+        </tr>
+        <tr>
+            <td>7</td>
+            <td>Madonna, Like a Virgin, 1984</td>
+        </tr>
+        <tr>
+            <td>8</td>
+            <td>Elton John, Your Song, 1970</td>
+        </tr>
+        <tr>
+            <td>9</td>
+            <td>Taylor Swift, Shake It Off, 2014</td>
+        </tr>
+        <tr>
+            <td>10</td>
+            <td>Billie Eilish, Bad Guy, 2019</td>
+        </tr>
+        </tbody>
+    </table>
+
+    For workflows that use rules to extract or categorize content,
+    prepare a codebook as JSON file. The codebook contains a list of rules.
+    Each rule (depending on the workflow) consists of the keys:
+    </p>
+    <ul>
+        <li><i>category</i> (the output, should only contain lowercase letters, numbers, underscores),</li>
+        <li><i>description</i> (definition of the category or rule),</li>
+        <li><i>example</i> (one or more examples matching the rule).</li>
+    </ul>
+<p>
+<pre>[
+  {
+    "category": "pop",
+    "description": "Popular music with catchy melodies and broad appeal",
+    "example": "Bruno Mars - Uptown Funk"
+  },
+  {
+    "category": "rock",
+    "description": "Music characterized by strong beats and electric guitars",
+    "example": "Led Zeppelin - Stairway to Heaven"
+  },
+  {
+    "category": "hip hop",
+    "description": "Rhythmic music often featuring rapping and DJing",
+    "example": "Eminem - Lose Yourself"
+  },
+  {
+    "category": "jazz",
+    "description": "Music with swing and blue notes, improvisation, and complex harmonies",
+    "example": "John Coltrane - Giant Steps"
+  },
+  {
+    "category": "classical",
+    "description": "Western art music from the medieval to the modern period",
+    "example": "Johann Sebastian Bach - Brandenburg Concerto No.3"
+  },
+  {
+    "category": "country",
+    "description": "Music with roots in American folk and western styles",
+    "example": "Dolly Parton - Jolene"
+  },
+  {
+    "category": "electronic",
+    "description": "Music produced primarily with electronic instruments and synthesizers",
+    "example": "Calvin Harris - Summer"
+  },
+  {
+    "category": "rb",
+    "description": "Rhythm and Blues featuring soulful vocals and groove-based instrumentation",
+    "example": "Mary J. Blige - Family Affair"
+  },
+  {
+    "category": "reggae",
+    "description": "Music originating from Jamaica characterized by offbeat rhythms",
+    "example": "Peter Tosh - Legalize It"
+  },
+  {
+    "category": "metal",
+    "description": "Loud, aggressive rock music with distorted guitars and emphatic rhythms",
+    "example": "Iron Maiden - The Trooper"
+  }
+]</pre>
+</p>
+<p>
+    Instead of working with JSON directly, you can prepare a CSV or Excel file to be converted to JSON.
+</p>
+
+<h2>Let the LLM do the work!</h2>
+
+<p>
+  Processing data with the databoard service is always a two-step procedure: <b>1. Submit tasks</b> and get task IDs, <b>2. Get task results</b> with your task IDs.
+  This approach allows you to submit large samples (each case as a single task), let the service do its work and come back later to retrieve results once they are ready. All users, by now, share a queue and each task is processed one after another.
+    Running jobs for hours or overnight is absolutely fine! In doubt reach out for us to coordinate resources.
+</p>
+
+<p>
+The databoard service provides a simple REST API to push data and get results.
+If you don't want to code yourself, use <a href="https://github.com/strohne/Facepager">Facepager</a> to submit data and fetch results.
+Python scripts are well suited for interacting with the API (see the examples below).
+    You can try out the API on the <a href="/docs">API documentation page</a> with some examples.
+    Read the documentation for further options not explained below.
+</p>
+
+<h3>Getting Started with Facepager</h3>
+
+    <ol>
+        <li>Download the latest Facepager version.</li>
+        <li>Click the Presets button and open the Databoard category. Read the preset explanations.</li>
+        <li>Add your data as nodes. Rule-based workflows such as coding tasks need a rule book. Either adjust the rules in the payload or put your JSON rules file into the upload folder and include it with a placeholder. See the preset explanation for how to do it.</li>
+        <li>Click the login button and enter your Databoard credentials.</li>
+        <li>Fetch data with a preset to submit tasks.</li>
+        <li>Fetch data with a preset to get task results. Keep fetching until all results are ready.</li>
+        <li>Adjust the column setup and export your data.</li>
+    </ol>
+
+<p>
+    For larger samples, we recommend to first submit all cases one by one with a wait timeout of 0 (fast task submission)
+    and then poll in reasonable intervals until the tasks are finished.
+    For smaller samples, set the wait timeout to 10 seconds.
+    The result will be immediately returned if 10 seconds were enough to process the input case.
+    Otherwise, start polling with reasonable intervals.
+</p>
+
+<h3>Getting Started with Python</h3>
+
+<p>The following snippets contain an example how to submit one case for coding.
+    This should get you started to develop a script for submitting larger jobs.
+    Don't forget to implement  error handling and a progress bar :)
+</p>
+<p>
+See the <a href="/docs">API documentation</a> for further options.
+</p>
+<h4>1. Get token</h4>
+<p>
+<pre>import requests
+
+token_resp = requests.post(
+    "https://databoard.uni-muenster.de/token",
+    data={
+        "username": "YOUR DATABOARD USERNAME",
+        "password": "YOUR DATABOARD PASSWORD",
+    }
+)
+
+access_token = ""
+if token_resp.status_code == 200:
+    access_token = token_resp.json()["access_token"]
+    print("✅ Logged in")</pre>
+</p>
+<p>Tokens are usually valid for one day.</p>
+
+<h4>2. Submit task</h4>
+<p>
+<pre>import requests
+
+task_resp = requests.post(
+    "https://databoard.uni-muenster.de/tasks/run",
+    json={
+        "task": "coding",
+        "input": ["Adele, Rolling in the Deep, 2010"],
+
+        "options": {
+            "rules": [
+                {
+                    "category": "pop",
+                    "description": "Popular music with catchy melodies and broad appeal"
+                },
+                {
+                    "category": "rock",
+                    "description": "Music characterized by strong beats and electric guitars"
+                },
+                {
+                    "category": "classical",
+                    "description": "Western art music from the medieval to the modern period"
+                },
+                {
+                    "category": "country",
+                    "description": "Music with roots in American folk and western styles"
+                },
+                {
+                    "category": "rb",
+                    "description": "Rhythm and Blues featuring soulful vocals and groove-based instrumentation"
+                }
+            ],
+            "mode": "multi"
+        }
+    },
+    headers={"Authorization": f"Bearer {access_token}"}
+)
+
+task_state = "PENDING"
+task_id = ""
+
+if task_resp.ok:
+    task_result = task_resp.json()
+
+    task_id = task_result['task_id']
+    task_state = task_result['state']
+
+    print(f"✅ Submitted task {task_id}")</pre>
+</p>
+<p>Try out how the result looks like if you change the mode to "single".</p>
+
+<h4>3. Retrieve result</h4>
+<p>
+<pre>import time
+import json
+import requests
+
+while (task_state == 'PENDING'):
+    task_resp = requests.get(
+        f"https://databoard.uni-muenster.de/tasks/run/{task_id}",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    task_result = task_resp.json()
+
+    task_id = task_result['task_id']
+    task_state = task_result['state']
+
+    if task_state == 'PENDING':
+        print(f"⌛ Waiting 10 more seconds")
+        time.sleep(10)
+
+print(f"Task finished with state {task_state}")
+
+print(json.dumps(task_result, indent=2))</pre>
+</p>
+
+<p>
+    You submit your cases as a list. In the results, you will find one answer for each input case of the task.
+    While you can submit multiple cases in one task, we recommend to split cases for larger samples.
+    Thus, you only submit one item in the input list and get exactly one item in the answers array.
+</p>
+
+<h2>The prompt templates</h2>
+
+<p>
+There are two prompt templates for each workflow: a system prompt and a user prompt.
+The templates can contain the placeholders <code>{{text}}</code> (replaced by your input text)
+and <code>{{rules}}</code> (replaced by your rule book, automatically formatted as markdown by the workflows).<br>
+</p>
+<p>
+  <b>Default system prompt</b> for the coding workflow in mode=multi:
+</p>
+<p><pre>You are an expert in content analysis. Be precise and concise.
+Use the codebook provided to decide for each category, whether the text falls into the category.
+Please carefully read the text and determine for each category whether it applies.
+Return one line for each category.
+Each returned line must start with the category name, followed by a colon ':' and then followed by one of the codes
+'2' if the category strongly applies, '1' if the category applies, '0' if not, '?' if you can't decide.
+Return only the lines for each category - nothing else, no introduction, no explanation, no disclaimer!</pre>
+</p>
+<p>
+    Each workflow has its own post-processing procedures.
+    For example, the coding workflow expects a list of category names followed by a colon and an output value.
+    The LLM output is then parsed and returned as JSON by the API.
+    <br>
+</p>
+
+<p>
+  <b>Default user prompt</b> for the coding workflow in mode=multi:
+</p>
+<p><pre>The following text must be classified in all the categories defined in the codebook below.
+Return one line per category. Nothing else, no introduction, no explanation, no disclaimer!
+
+# Code Book:
+{{rules}}
+
+
+# Text to classify:
+{{text}}
+</pre>
+<br></p>
+
+<p>
+<b>Changing the prompts</b> is easy.
+    Submit your own templates along the task options.
+    Use the `summarize` task for full input and output control.
+    Since the single summary task does not involve any rules,
+    pre- and post-processing is skipped. Example:
+</p>
+<p><pre>task_resp = requests.post(
+    "https://databoard.uni-muenster.de/tasks/run",
+    json={
+        "task": "summarize",
+        "input": ["The moon landing in 1969 marked a monumental achievement in human history, showcasing humanity's ability to explore beyond Earth. Neil Armstrong's first steps on the lunar surface symbolized a giant leap forward for science and technology."],
+
+        "options": {
+            "prompts": {
+                "system": "Output a list of person names contained in the input, comma separated. Output NA if no persons are found. Nothing else, no explanation!",
+                "user": "{{text}}"
+            }
+        }
+    },
+    headers={"Authorization": f"Bearer {access_token}"}
+)</pre></p>
+<p>Be aware: JSON does not allow line breaks inside values. Each value is a single line. Escape linebreaks with `\n`.</p>
+{% endraw %}
+
+{% endblock %}
