@@ -25,7 +25,7 @@ The repository contains the server component of the Databoard Service.
    ```
    docker exec -it db_ollama ollama pull llama3.2
    ```
-4. Open http://localhost 
+4. Open http://localhost:8000
 
 
 For trouble shooting, see the logs of the containers.

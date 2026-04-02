@@ -4,15 +4,19 @@ FROM python:3.9-slim
 # Set the working directory in the container
 WORKDIR /app
 
+# Install requirements before code so that the Docker layer can be cached if requirements don't change
+COPY ./databoard_core/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+COPY ./databoard_server/container/fastapi/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
 # Install server component
-COPY ./databoard_server/container/fastapi/requirements.txt .
 COPY ./databoard_server/src /app/src/
-RUN pip install --no-cache-dir -r requirements.txt
 #COPY ./data /app/data/
 
 # Install databoard core libraries
 COPY ./databoard_core /app/databoard_core/
-RUN pip install --no-cache-dir -r /app/databoard_core/requirements.txt
 RUN pip install -e ./databoard_core
 
 # Download models
