@@ -1,8 +1,8 @@
 import json
 import os
-from typing import Union
+from typing import Dict, Union
 from datetime import datetime, timedelta, timezone
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import jwt
 #import passlib
 from jwt.exceptions import InvalidTokenError
@@ -134,7 +134,8 @@ class Accounts:
 
     # --------- Public-facing methods ---------
     def addUser(self, username: str, password: str, email: str = None,
-                fullname: str = None, usertype: str = "human", tokenExpires: bool = True) -> "PublicUser":
+                fullname: str = None, usertype: str = "human", tokenExpires: bool = True,
+                rateLimit: Dict[str, Dict[str, int]] = None) -> "PublicUser":
         if username in self.accounts:
             raise HTTPException(status_code=400, detail="User already exists")
 
@@ -150,7 +151,8 @@ class Accounts:
             "disabled": False,
             "password": hashed_password,
             "tokenVersion": 1,
-            "tokenExpires": tokenExpires
+            "tokenExpires": tokenExpires,
+            "rateLimit": rateLimit or {}
         }
         self.saveUsers()
         return PublicUser(**self.accounts[username])  # Return safe version
@@ -184,6 +186,7 @@ class User(BaseModel):
     password: str
     tokenVersion: Union[int, None] = None
     tokenExpires: bool = True
+    rateLimit: Dict[str, Dict[str, int]] = Field(default_factory=dict)
 
 class PublicUser(BaseModel):
     username: str
@@ -193,6 +196,7 @@ class PublicUser(BaseModel):
     disabled: Union[bool, None] = None
     tokenVersion: Union[int, None] = None
     tokenExpires: bool = True
+    rateLimit: Dict[str, Dict[str, int]] = Field(default_factory=dict)
 
 class Token(BaseModel):
     access_token: str

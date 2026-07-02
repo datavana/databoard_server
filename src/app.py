@@ -1,4 +1,6 @@
-from typing import Annotated, List, Optional
+from typing import Annotated, Dict, List, Optional
+from collections import defaultdict, deque
+import time
 from fastapi import FastAPI, Depends, Request, HTTPException, Response, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -36,6 +38,72 @@ templates = Jinja2Templates(directory="src/templates")
 
 # Will hold our Llm client
 myLlmClient = None
+
+# Default limits; each user can override these in their account `rateLimit` field.
+DEFAULT_RATE_LIMIT: Dict[str, Dict[str, int]] = {
+    "default": {"requests": 180, "seconds": 60},
+    "/tasks/run": {"requests": 30, "seconds": 60},
+    "/tasks/run/{task_id}": {"requests": 120, "seconds": 60},
+    "/token": {"requests": 15, "seconds": 60},
+}
+_rate_limit_hits = defaultdict(deque)
+
+
+def _resolve_route_path(request: Request) -> str:
+    route = request.scope.get("route")
+    if route and hasattr(route, "path"):
+        return route.path
+    return request.url.path
+
+
+def _get_limit_config(user_rate_limit: Dict[str, Dict[str, int]], route_path: str) -> Dict[str, int]:
+    merged = dict(DEFAULT_RATE_LIMIT)
+    merged.update(user_rate_limit or {})
+    return merged.get(route_path, merged["default"])
+
+
+def _check_rate_limit(bucket: str, requests_limit: int, seconds: int) -> Optional[int]:
+    now = time.monotonic()
+    cutoff = now - seconds
+    hits = _rate_limit_hits[bucket]
+
+    while hits and hits[0] <= cutoff:
+        hits.popleft()
+
+    if len(hits) >= requests_limit:
+        return max(1, int(seconds - (now - hits[0])))
+
+    hits.append(now)
+    return None
+
+
+def _enforce_bucket_limit(bucket: str, route_path: str, user_rate_limit: Dict[str, Dict[str, int]]):
+    limit = _get_limit_config(user_rate_limit, route_path)
+    try:
+        requests_limit = int(limit.get("requests", 0))
+        seconds = int(limit.get("seconds", 60))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=500, detail="Invalid rate limit configuration")
+
+    if requests_limit <= 0:
+        return
+
+    retry_after = _check_rate_limit(bucket, requests_limit, seconds)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded",
+            headers={"Retry-After": str(retry_after)}
+        )
+
+
+async def enforce_user_rate_limit(
+    request: Request,
+    user: Annotated[users.User, Depends(get_current_user)]
+):
+    route_path = _resolve_route_path(request)
+    bucket = f"{user.username}:{route_path}"
+    _enforce_bucket_limit(bucket, route_path, user.rateLimit)
 
 # Custom Exception Handler for HTTPException
 @app.exception_handler(HTTPException)
@@ -76,6 +144,7 @@ async def homepage(request: Request):
 @app.post("/tasks/run")
 async def task_add(
         user: Annotated[users.User, Depends(get_current_user)],
+        _rate_limit: Annotated[None, Depends(enforce_user_rate_limit)],
         request: Request,
         payload: payloads.TaskInput,
         wait: conint(ge=0, le=10) = 0
@@ -173,6 +242,7 @@ async def task_add(
 @app.get("/tasks/run/{task_id}")
 async def task_get(
     user: Annotated[users.User, Depends(get_current_user)],
+    _rate_limit: Annotated[None, Depends(enforce_user_rate_limit)],
     task_id: str,
     wait: conint(ge=0, le=10) = 0
 ):
@@ -192,6 +262,7 @@ async def task_get(
 
 @app.get("/tasks/count")
 async def task_count(
+    _rate_limit: Annotated[None, Depends(enforce_user_rate_limit)],
     admin: Annotated[users.User, Depends(require_admin)]
 ):
     """
@@ -223,10 +294,15 @@ async def token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> u
     :param form_data:
     :return:
     """
+    account = accounts.accounts.get(form_data.username, {})
+    route_path = "/token"
+    bucket = f"token:{form_data.username}:{route_path}"
+    _enforce_bucket_limit(bucket, route_path, account.get("rateLimit", {}))
     return accounts.getAccessToken(form_data)
 
 @app.get("/users", response_model=List[users.PublicUser])
 async def users_list(
+    _rate_limit: Annotated[None, Depends(enforce_user_rate_limit)],
     admin: Annotated[users.User, Depends(require_admin)]
 ):
     """
@@ -237,13 +313,15 @@ async def users_list(
 
 @app.post("/users/add", response_model=users.PublicUser)
 async def users_add(
+    _rate_limit: Annotated[None, Depends(enforce_user_rate_limit)],
     admin: Annotated[users.User, Depends(require_admin)],
     username: str = Body(...),
     password: str = Body(...),
     email: Optional[str] = Body(None),
     fullname: Optional[str] = Body(None),
     usertype: str = Body("human"),
-    tokenExpires: bool = Body(True)
+    tokenExpires: bool = Body(True),
+    rateLimit: Optional[Dict[str, Dict[str, int]]] = Body(None)
 ):
     """
     Add a user (admin permissions required).
@@ -263,11 +341,16 @@ async def users_add(
         email=email,
         fullname=fullname,
         usertype=usertype,
-        tokenExpires=tokenExpires
+        tokenExpires=tokenExpires,
+        rateLimit=rateLimit
     )
 
 @app.post("/users/disable/{username}", response_model=users.PublicUser)
-async def users_disable(username: str, admin: Annotated[users.User, Depends(require_admin)]):
+async def users_disable(
+    username: str,
+    _rate_limit: Annotated[None, Depends(enforce_user_rate_limit)],
+    admin: Annotated[users.User, Depends(require_admin)]
+):
     """
     Disable a user account  (admin permissions required).
     :param username:
@@ -279,12 +362,46 @@ async def users_disable(username: str, admin: Annotated[users.User, Depends(requ
 @app.delete("/users/delete/{username}")
 async def users_delete(
     username: str,
+    _rate_limit: Annotated[None, Depends(enforce_user_rate_limit)],
     admin: Annotated[users.User, Depends(require_admin)]
 ):
     """
     Delete a user account  (admin permissions required).
     """
     return accounts.deleteUser(username)
+
+
+@app.patch("/users/patch/{username}", response_model=users.PublicUser)
+async def users_patch_rate_limit(
+    username: str,
+    _rate_limit: Annotated[None, Depends(enforce_user_rate_limit)],
+    admin: Annotated[users.User, Depends(require_admin)],
+    rateLimit: Dict[str, Dict[str, int]] = Body(...)
+):
+    """
+    Update rate limit configuration for a user (admin permissions required).
+
+    Pass the new rate limit configuration as JSON in the request body.
+    Example:
+    {
+      "rateLimit": {
+        "default": {"requests": 100, "seconds": 60},
+        "/tasks/run": {"requests": 10, "seconds": 60}
+      }
+    }
+
+    :param username:
+    :param admin:
+    :param rateLimit:
+    :return:
+    """
+    if username not in accounts.accounts:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user = accounts.accounts[username]
+    user["rateLimit"] = rateLimit
+    accounts.saveUsers()
+    return users.PublicUser(**user)
 
 
 # @app.get("/hash/{secret}")
