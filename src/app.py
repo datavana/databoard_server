@@ -5,13 +5,11 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
-import urllib.parse
 
 from pydantic import conint
-
 import json
 
-from .jobs import worker, payloads
+from .jobs import worker, payloads, results
 from .users import users
 
 app = FastAPI()
@@ -65,7 +63,6 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     access_token = accounts.getAccessToken(form_data)
     redirect_url = f"/login?success=1#access_token={access_token.access_token}"
     return RedirectResponse(url=redirect_url, status_code=303)
-
 
 @app.get("/", include_in_schema=False)
 async def homepage(request: Request):
@@ -171,24 +168,10 @@ async def task_add(
         raise ValueError("Unsupported task type")
 
     result = await worker.getStatus(task.id, wait)
-
-    if result.get("state") == "PENDING":
-        response = Response(
-            content=json.dumps(result),
-            status_code=202,
-            media_type="application/json"
-        )
-        response.headers["Location"] = f"/tasks/run/{task.id}"
-        response.headers["Retry-After"] = "10"
-        return response
-
-    elif result.get("state") == "FAILURE":
-        return result, 500
-
-    return result
+    return results.to_response(task.id, result)
 
 @app.get("/tasks/run/{task_id}")
-async def task_status(
+async def task_get(
     user: Annotated[users.User, Depends(get_current_user)],
     task_id: str,
     wait: conint(ge=0, le=10) = 0
@@ -204,34 +187,43 @@ async def task_status(
     # TODO: Check user.username in the task data
 
     result = await worker.getStatus(task_id, wait)
+    return results.to_response(task_id, result)
 
-    if result.get("state") == "PENDING":
-        response = Response(
-            content=json.dumps(result),
-            status_code=202,
-            media_type="application/json"
-        )
-        response.headers["Location"] = f"/tasks/run/{task_id}"
-        response.headers["Retry-After"] = "10"
-        return response
 
-    elif result.get("state") == "FAILURE":
-        return result, 500
+@app.get("/tasks/count")
+async def task_count(
+    admin: Annotated[users.User, Depends(require_admin)]
+):
+    """
+    Get the number of tasks in the queue
 
-    return result
+    :param user:
+    :param task_id:
+    :param wait Maximum seconds to wait for the task to be finished.
+    :return:
+    """
+
+
+    taskcount = await worker.getQueueLength()
+
+    response = Response(
+        content=json.dumps({"total": taskcount}),
+        status_code=200,
+        media_type="application/json"
+    )
+    return response
 
 
 @app.post("/token")
 async def token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> users.Token:
     """
     Login endpoint to get an access token
-    (for use in the the Swagger UI)
+    (for use in the Swagger UI)
 
     :param form_data:
     :return:
     """
     return accounts.getAccessToken(form_data)
-
 
 @app.get("/users", response_model=List[users.PublicUser])
 async def users_list(
