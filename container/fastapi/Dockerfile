@@ -11,13 +11,13 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 COPY ./databoard_server/container/fastapi/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
-# Install server component
-COPY ./databoard_server/src /app/src/
-#COPY ./data /app/data/
-
 # Install databoard core libraries
 COPY ./databoard_core /app/databoard_core/
 RUN pip install -e ./databoard_core
+
+# Install databoard server component
+COPY ./databoard_server/src /app/src/
+#COPY ./data /app/data/
 
 # Download models
 #RUN python -m spacy download de_core_news_sm
