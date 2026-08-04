@@ -39,6 +39,44 @@ async def getQueueLength():
 
     return scheduled_count + active_count
 
+
+def _is_non_empty(value):
+    if value is None:
+        return False
+    if isinstance(value, float) and np.isnan(value):
+        return False
+    if isinstance(value, str):
+        return value.strip() != ''
+    return True
+
+
+def _derive_result_state(task_state, task_info):
+    """
+    Check the answers. A llm_status field indicates errors.
+    In this case, revise the task result state.
+
+    :param task_state:
+    :param task_info:
+    :return:
+    """
+    if task_state != 'SUCCESS' or not isinstance(task_info, dict):
+        return task_state
+
+    answers = task_info.get('answers')
+    if not isinstance(answers, list) or len(answers) == 0:
+        return task_state
+
+    llm_status = [row.get('llm_status') if isinstance(row, dict) else None for row in answers]
+    non_empty_count = sum(1 for value in llm_status if _is_non_empty(value))
+
+    if non_empty_count == len(llm_status):
+        return 'FAILURE'
+    if non_empty_count > 0:
+        return 'MIXED'
+
+    return task_state
+
+
 async def getStatus(task_id, wait=0):
     """
     Get the task status.
@@ -58,15 +96,13 @@ async def getStatus(task_id, wait=0):
                 break
             await asyncio.sleep(0.5)
 
-    taskState = task.state
+    taskState = _derive_result_state(task.state, task.info)
     response = {
         "state": taskState,
         "task_id": task.id
     }
 
-    if taskState == 'SUCCESS':
-        response['result'] = task.info
-    elif taskState == 'FAILURE':
+    if taskState in ('SUCCESS', 'FAILURE', 'MIXED'):
         response['result'] = task.info
     return response
 
@@ -117,6 +153,9 @@ class BaseTask(Task):
                 workflowSettings['userPrompt'] = userPromptFile
                 workflowSettings['systemPrompt'] = systemPromptFile
                 workflowSettings['promptFolder'] = self.promptFolder
+
+        # Disable reporting
+        workflowSettings['reportCodings'] = False
 
         # Model settings
         workflowSettings['rawAnswer'] = payloadOptions.get('raw', False)
