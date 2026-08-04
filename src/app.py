@@ -97,10 +97,19 @@ def _enforce_bucket_limit(bucket: str, route_path: str, user_rate_limit: Dict[st
         requests_limit = int(limit.get("requests", 0))
         seconds = int(limit.get("seconds", 60))
     except (TypeError, ValueError):
-        raise HTTPException(status_code=500, detail="Invalid rate limit configuration")
+        raise HTTPException(
+            status_code=500,
+            detail="Invalid rate limit configuration"
+        )
+
+    if (seconds <= 0) and (requests_limit > 0):
+        return {}
 
     if requests_limit <= 0:
-        return {}
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to access this route"
+        )
 
     is_allowed, retry_after, remaining, reset = _check_rate_limit(bucket, requests_limit, seconds)
     headers = _build_rate_limit_headers(requests_limit, remaining, reset)
@@ -317,7 +326,8 @@ async def token(response: Response, form_data: Annotated[OAuth2PasswordRequestFo
     account = accounts.accounts.get(form_data.username, {})
     route_path = "/token"
     bucket = f"token:{form_data.username}:{route_path}"
-    response.headers.update(_enforce_bucket_limit(bucket, route_path, account.get("rateLimit", {})))
+    headers = _enforce_bucket_limit(bucket, route_path, account.get("rateLimit", {}))
+    response.headers.update(headers)
     return accounts.getAccessToken(form_data)
 
 @app.get("/users", response_model=List[users.PublicUser])
@@ -405,10 +415,13 @@ async def users_patch_rate_limit(
     Example:
     {
       "rateLimit": {
-        "default": {"requests": 100, "seconds": 60},
-        "/tasks/run": {"requests": 10, "seconds": 60}
+        "/tasks/run": {"requests": 10, "seconds": 60},
+        "/tasks/run/{task_id}": {"requests": 100, "seconds": 60}
       }
     }
+
+    Disable the rate limit for a route by setting seconds to 0.
+    Disable access to a route by setting requests to 0.
 
     :param username:
     :param admin:
