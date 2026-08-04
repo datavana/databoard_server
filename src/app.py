@@ -1,4 +1,4 @@
-from typing import Annotated, Dict, List, Optional
+from typing import Annotated, Dict, List, Optional, Tuple
 from collections import defaultdict, deque
 import time
 from fastapi import FastAPI, Depends, Request, HTTPException, Response, Query, Body
@@ -62,7 +62,18 @@ def _get_limit_config(user_rate_limit: Dict[str, Dict[str, int]], route_path: st
     return merged.get(route_path, merged["default"])
 
 
-def _check_rate_limit(bucket: str, requests_limit: int, seconds: int) -> Optional[int]:
+def _build_rate_limit_headers(requests_limit: int, remaining: int, reset: int) -> Dict[str, str]:
+    return {
+        "X-RateLimit-Limit": str(requests_limit),
+        "X-RateLimit-Remaining": str(remaining),
+        "X-RateLimit-Reset": str(reset),
+        "RateLimit-Limit": str(requests_limit),
+        "RateLimit-Remaining": str(remaining),
+        "RateLimit-Reset": str(reset),
+    }
+
+
+def _check_rate_limit(bucket: str, requests_limit: int, seconds: int) -> Tuple[bool, Optional[int], int, int]:
     now = time.monotonic()
     cutoff = now - seconds
     hits = _rate_limit_hits[bucket]
@@ -71,13 +82,16 @@ def _check_rate_limit(bucket: str, requests_limit: int, seconds: int) -> Optiona
         hits.popleft()
 
     if len(hits) >= requests_limit:
-        return max(1, int(seconds - (now - hits[0])))
+        retry_after = max(1, int(seconds - (now - hits[0])))
+        return False, retry_after, 0, retry_after
 
     hits.append(now)
-    return None
+    remaining = max(0, requests_limit - len(hits))
+    reset = max(1, int(seconds - (now - hits[0])))
+    return True, None, remaining, reset
 
 
-def _enforce_bucket_limit(bucket: str, route_path: str, user_rate_limit: Dict[str, Dict[str, int]]):
+def _enforce_bucket_limit(bucket: str, route_path: str, user_rate_limit: Dict[str, Dict[str, int]]) -> Dict[str, str]:
     limit = _get_limit_config(user_rate_limit, route_path)
     try:
         requests_limit = int(limit.get("requests", 0))
@@ -86,24 +100,29 @@ def _enforce_bucket_limit(bucket: str, route_path: str, user_rate_limit: Dict[st
         raise HTTPException(status_code=500, detail="Invalid rate limit configuration")
 
     if requests_limit <= 0:
-        return
+        return {}
 
-    retry_after = _check_rate_limit(bucket, requests_limit, seconds)
-    if retry_after is not None:
+    is_allowed, retry_after, remaining, reset = _check_rate_limit(bucket, requests_limit, seconds)
+    headers = _build_rate_limit_headers(requests_limit, remaining, reset)
+    if not is_allowed and retry_after is not None:
+        headers["Retry-After"] = str(retry_after)
         raise HTTPException(
             status_code=429,
             detail="Rate limit exceeded",
-            headers={"Retry-After": str(retry_after)}
+            headers=headers
         )
+    return headers
 
 
 async def enforce_user_rate_limit(
     request: Request,
+    response: Response,
     user: Annotated[users.User, Depends(get_current_user)]
 ):
     route_path = _resolve_route_path(request)
     bucket = f"{user.username}:{route_path}"
-    _enforce_bucket_limit(bucket, route_path, user.rateLimit)
+    headers = _enforce_bucket_limit(bucket, route_path, user.rateLimit)
+    response.headers.update(headers)
 
 # Custom Exception Handler for HTTPException
 @app.exception_handler(HTTPException)
@@ -116,7 +135,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     return templates.TemplateResponse(
         "error.html",
         {"request": request, "exc": exc, "title": "Databoard"},
-        status_code=exc.status_code
+        status_code=exc.status_code,
+        headers=exc.headers
     )
 
 @app.get("/login", response_class=HTMLResponse, include_in_schema=False)
@@ -286,7 +306,7 @@ async def task_count(
 
 
 @app.post("/token")
-async def token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> users.Token:
+async def token(response: Response, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> users.Token:
     """
     Login endpoint to get an access token
     (for use in the Swagger UI)
@@ -297,7 +317,7 @@ async def token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> u
     account = accounts.accounts.get(form_data.username, {})
     route_path = "/token"
     bucket = f"token:{form_data.username}:{route_path}"
-    _enforce_bucket_limit(bucket, route_path, account.get("rateLimit", {}))
+    response.headers.update(_enforce_bucket_limit(bucket, route_path, account.get("rateLimit", {})))
     return accounts.getAccessToken(form_data)
 
 @app.get("/users", response_model=List[users.PublicUser])
@@ -407,4 +427,3 @@ async def users_patch_rate_limit(
 # @app.get("/hash/{secret}")
 # async def get_hash(secret):
 #     return accounts.hashPassword(secret)
-
