@@ -237,7 +237,7 @@ async def task_add(
         raise ValueError("Unsupported task type")
 
     result = await worker.getStatus(task.id, wait)
-    return results.to_response(task.id, result)
+    return results.to_response(result, task.id)
 
 @app.get("/tasks/run/{task_id}")
 async def task_get(
@@ -257,7 +257,7 @@ async def task_get(
     # TODO: Check user.username in the task data
 
     result = await worker.getStatus(task_id, wait)
-    return results.to_response(task_id, result)
+    return results.to_response(result, task_id)
 
 
 @app.get("/tasks/count")
