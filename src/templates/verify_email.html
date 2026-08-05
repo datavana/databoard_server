@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+    {% if success == "1" %}
+        <p class="status">Your email address has been verified. You can now log in.</p>
+        {% if user %}
+            <p>Account: <strong>{{ user.username }}</strong></p>
+        {% endif %}
+        <p><a href="/login">Go to login</a></p>
+    {% else %}
+        <p class="status">Verification failed or the link has expired.</p>
+        {% if message %}
+            <p>{{ message }}</p>
+        {% endif %}
+        <p><a href="/register">Register again</a></p>
+    {% endif %}
+{% endblock %}
+
+

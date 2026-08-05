@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+    {% if success == "1" %}
+        <p class="status">Registration successful. Please check your email for the verification link.</p>
+        {% if message %}
+            <p>{{ message }}</p>
+        {% endif %}
+    {% else %}
+        <h2>Create an account</h2>
+        {% if message %}
+            <p class="status">{{ message }}</p>
+        {% endif %}
+        <form action="/register" method="post">
+            <input type="text" name="username" placeholder="Username" required />
+            <br>
+            <input type="email" name="email" placeholder="Email" required />
+            <br>
+            <input type="text" name="fullname" placeholder="Full name (optional)" />
+            <br>
+            <input type="password" name="password" placeholder="Password" required />
+            <br>
+            <button type="submit">Register</button>
+        </form>
+    {% endif %}
+
+    <p><a href="/login">Back to login</a></p>
+{% endblock %}
+

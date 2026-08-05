@@ -1,14 +1,16 @@
 from typing import Annotated, Dict, List, Optional, Tuple
 from collections import defaultdict, deque
+from email.message import EmailMessage
+from urllib.parse import urlencode
+import os
+import smtplib
 import time
-from fastapi import FastAPI, Depends, Request, HTTPException, Response, Query, Body
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Depends, Request, HTTPException, Response, Query, Body, Form
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from pydantic import conint
 import json
 
 from .jobs import worker, payloads, results
@@ -133,12 +135,66 @@ async def enforce_user_rate_limit(
     headers = _enforce_bucket_limit(bucket, route_path, user.rateLimit)
     response.headers.update(headers)
 
+
+def _get_public_base_url(request: Request) -> str:
+    base_url = os.getenv("DATABOARD_PUBLIC_BASE_URL")
+    if base_url:
+        return base_url.rstrip("/")
+    return str(request.base_url).rstrip("/")
+
+
+def _build_verification_link(request: Request, token: str) -> str:
+    return f"{_get_public_base_url(request)}/verify-email?{urlencode({'token': token})}"
+
+
+def _send_verification_email(request: Request, user: users.User, token: str) -> bool:
+    recipient = user.email
+    if not recipient:
+        raise HTTPException(status_code=400, detail="An email address is required for registration")
+
+    verification_link = _build_verification_link(request, token)
+    subject = "Verify your Datavana Databoard account"
+    body = (
+        f"Hello {user.fullname or user.username},\n\n"
+        "please verify your Databoard account by opening the following link:\n\n"
+        f"{verification_link}\n\n"
+        "If you did not register for Databoard, you can ignore this message.\n"
+    )
+
+    smtp_host = os.getenv("DATABOARD_SMTP_HOST")
+    if not smtp_host:
+        print(f"[Datavana Databoard] Verification link for {user.username}: {verification_link}")
+        return False
+
+    smtp_port = int(os.getenv("DATABOARD_SMTP_PORT", "587"))
+    smtp_username = os.getenv("DATABOARD_SMTP_USERNAME")
+    smtp_password = os.getenv("DATABOARD_SMTP_PASSWORD")
+    smtp_from = os.getenv("DATABOARD_EMAIL_FROM", smtp_username or "no-reply@databoard.local")
+    use_tls = os.getenv("DATABOARD_SMTP_TLS", "1").lower() not in {"0", "false", "no"}
+
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = smtp_from
+    message["To"] = recipient
+    message.set_content(body)
+
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as smtp:
+        if use_tls:
+            smtp.starttls()
+        if smtp_username is not None:
+            if smtp_password is not None:
+                smtp.login(smtp_username, smtp_password)
+        smtp.send_message(message)
+    return True
+
 # Custom Exception Handler for HTTPException
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Renders an HTML error page instead of JSON response for HTTP exceptions."""
 
     if request.url.path == "/login":
+        if exc.status_code == 403 and "verified" in str(exc.detail).lower():
+            return RedirectResponse(url="/login?success=2", status_code=303)
         return RedirectResponse(url="/login?success=0", status_code=303)
 
     return templates.TemplateResponse(
@@ -161,6 +217,84 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     redirect_url = f"/login?success=1#access_token={access_token.access_token}"
     return RedirectResponse(url=redirect_url, status_code=303)
 
+
+@app.get("/register", response_class=HTMLResponse, include_in_schema=False)
+async def register_form(request: Request, success: str = Query("0"), message: str = Query("")):
+    """Serve the public self-registration form."""
+    return templates.TemplateResponse(
+        "register.html",
+        {"request": request, "success": success, "message": message, "title": "Databoard"}
+    )
+
+
+@app.post("/register", include_in_schema=False)
+async def register(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    email: str = Form(...),
+    fullname: Optional[str] = Form(None)
+):
+    """Create a pending account and send a verification email."""
+    try:
+        user = accounts.addUser(
+            username=username,
+            password=password,
+            email=email,
+            fullname=fullname,
+            usertype="human",
+            tokenExpires=True,
+            emailVerified=False,
+            disabled=True,
+        )
+        if user.email is None:
+            raise HTTPException(status_code=400, detail="An email address is required for registration")
+        verification_token = accounts.createVerificationToken(user.username, user.email)
+        internal_user = accounts.getUser(user.username)
+        if not isinstance(internal_user, users.User):
+            internal_user = users.User(**accounts.accounts[user.username])
+        email_sent = _send_verification_email(request, internal_user, verification_token)
+    except HTTPException as exc:
+        if username in accounts.accounts and accounts.accounts[username].get("emailVerified") is False:
+            accounts.deleteUser(username)
+        return templates.TemplateResponse(
+            "register.html",
+            {
+                "request": request,
+                "title": "Datavana Databoard",
+                "success": "0",
+                "message": exc.detail,
+            },
+            status_code=exc.status_code,
+        )
+    except Exception:
+        if username in accounts.accounts and accounts.accounts[username].get("emailVerified") is False:
+            accounts.deleteUser(username)
+        raise HTTPException(status_code=502, detail="Could not send verification email")
+
+    if email_sent:
+        return RedirectResponse(url="/register?success=1", status_code=303)
+
+    return RedirectResponse(
+        url=f"/register?{urlencode({'success': '1', 'message': 'Verification link logged on the server because SMTP is not configured.'})}",
+        status_code=303,
+    )
+
+
+@app.get("/verify-email", response_class=HTMLResponse, include_in_schema=False)
+async def verify_email(request: Request, token: str = Query(...)):
+    """Verify a registration token and activate the account."""
+    try:
+        user = accounts.verifyEmailToken(token)
+        success = "1"
+        message = ""
+    except HTTPException as exc:
+        user = None
+        success = "0"
+        message = exc.detail
+    context: Dict[str, object] = {"request": request, "title": "Databoard", "success": success, "user": user, "message": message}
+    return templates.TemplateResponse("verify_email.html", context)
+
 @app.get("/", include_in_schema=False)
 async def homepage(request: Request):
     # try:
@@ -176,7 +310,7 @@ async def task_add(
         _rate_limit: Annotated[None, Depends(enforce_user_rate_limit)],
         request: Request,
         payload: payloads.TaskInput,
-        wait: conint(ge=0, le=10) = 0
+        wait: int = Query(0, ge=0, le=10)
 ):
     """
     Generate a task
@@ -273,7 +407,7 @@ async def task_get(
     user: Annotated[users.User, Depends(get_current_user)],
     _rate_limit: Annotated[None, Depends(enforce_user_rate_limit)],
     task_id: str,
-    wait: conint(ge=0, le=10) = 0
+    wait: int = Query(0, ge=0, le=10)
 ):
     """
     Get the task status and if finished the result
@@ -324,9 +458,12 @@ async def token(response: Response, form_data: Annotated[OAuth2PasswordRequestFo
     :return:
     """
     account = accounts.accounts.get(form_data.username, {})
+    rate_limit_config: Dict[str, Dict[str, int]] = {}
+    if isinstance(account, dict):
+        rate_limit_config = account.get("rateLimit", {}) if isinstance(account.get("rateLimit", {}), dict) else {}
     route_path = "/token"
     bucket = f"token:{form_data.username}:{route_path}"
-    headers = _enforce_bucket_limit(bucket, route_path, account.get("rateLimit", {}))
+    headers = _enforce_bucket_limit(bucket, route_path, rate_limit_config)
     response.headers.update(headers)
     return accounts.getAccessToken(form_data)
 

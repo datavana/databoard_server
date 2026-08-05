@@ -7,6 +7,9 @@
         {% if success == "0" %}
             <p class="status">Not authorized</p>
         {% endif %}
+        {% if success == "2" %}
+            <p class="status">Please verify your email address before logging in.</p>
+        {% endif %}
 
         <input type="text" name="username" placeholder="Username" required />
         <br>
@@ -14,5 +17,7 @@
         <br>
         <button type="submit">Login</button>
     </form>
+
+    <p><a href="/register">Create a new account</a></p>
 
 {% endblock %}
