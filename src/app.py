@@ -254,19 +254,29 @@ async def task_add(
     """
     # TODO: put user.username in the task data
 
-    if payload.task == 'summarize':
-        task = worker.summarize.delay(payload.input, payload.options)
-    elif payload.task == 'coding':
-        task = worker.coding.delay(payload.input, payload.options)
-    elif payload.task == 'triples':
-        task = worker.triples.delay(payload.input, payload.options)
-    elif payload.task == 'annotate':
-        task = worker.annotate.delay(payload.input, payload.options)
-    else:
-        raise ValueError("Unsupported task type")
+    try:
+        if payload.task == 'summarize':
+            task = worker.summarize.delay(payload.input, payload.options)
+        elif payload.task == 'coding':
+            task = worker.coding.delay(payload.input, payload.options)
+        elif payload.task == 'triples':
+            task = worker.triples.delay(payload.input, payload.options)
+        elif payload.task == 'annotate':
+            task = worker.annotate.delay(payload.input, payload.options)
+        else:
+            raise ValueError("Unsupported task type")
 
-    result = await worker.getStatus(task.id, wait)
-    return results.to_response(result, task.id)
+        result = await worker.getStatus(task.id, wait)
+        return results.to_response(result, task.id)
+
+    except ValueError as e:
+        result = {"state": "FAILURE", "msg": str(e)}
+    except Exception as e:
+        # Don't show messages for unexpected errors
+        result = {"state": "FAILURE"}
+
+    return results.to_response(result)
+
 
 @app.get("/tasks/run/{task_id}")
 async def task_get(
@@ -284,10 +294,12 @@ async def task_get(
     :return:
     """
     # TODO: Check user.username in the task data
-
-    result = await worker.getStatus(task_id, wait)
-    return results.to_response(result, task_id)
-
+    try:
+        result = await worker.getStatus(task_id, wait)
+        return results.to_response(result, task_id)
+    except Exception as e:
+        result = {"state":"FAILURE", "msg": str(e)}
+        return results.to_response(result)
 
 @app.get("/tasks/count")
 async def task_count(

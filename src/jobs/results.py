@@ -2,7 +2,7 @@
 import json
 from fastapi import Response
 
-def to_response(result, task_id):
+def to_response(result, task_id = None):
     if result.get("state") == "PENDING":
         response = Response(
             content=json.dumps(result),

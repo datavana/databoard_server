@@ -103,7 +103,10 @@ async def getStatus(task_id, wait=0):
     }
 
     if taskState in ('SUCCESS', 'FAILURE', 'MIXED'):
-        response['result'] = task.info
+        if isinstance(task.info, Exception):
+            response['msg'] = str(task.info)
+        else:
+            response['result'] = task.info
     return response
 
 class BaseTask(Task):
