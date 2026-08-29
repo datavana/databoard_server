@@ -117,8 +117,8 @@ class BaseTask(Task):
     # TODO: Do we need a custom prompt folder?
     promptFolder = os.getenv('PROMPT_FOLDER', '/app/coreresources/prompts')
     customPromptFolder = os.getenv('PROMPT_FOLDER', '/app/coreresources/prompts')
-    cacheFolder = 'app/data/.cache'
-    logFolder = 'app/data/.logs'
+    cacheFolder = os.getenv('DATABOARD_CACHE_FOLDER', 'app/data/.cache')
+    logFolder = os.getenv('DATABOARD_LOG_FOLDER', 'app/data/.logs')
 
     @property
     def wf(self):
