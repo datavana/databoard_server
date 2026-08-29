@@ -7,7 +7,6 @@ celery==5.4.0
 jinja2==3.1.2
 numpy==1.21.6
 python-multipart
-ollama
 openai
 python-dotenv
 pyjwt

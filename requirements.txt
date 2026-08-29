@@ -8,7 +8,6 @@ python-multipart
 torch
 transformers
 qdrant-client
-ollama
 openai
 python-dotenv
 pyjwt
