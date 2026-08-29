@@ -8,10 +8,10 @@ WORKDIR /app
 RUN python -m venv venv
 
 COPY ./databoard_core/requirements.txt /tmp/requirements.txt
-RUN ./venv/bin/python -m pip install --no-cache-dir -r /tmp/requirements.txt
+RUN ./venv/bin/python -m pip install -r /tmp/requirements.txt #--no-cache-dir
 
 COPY ./databoard_server/container/celery/requirements.txt /tmp/requirements.txt
-RUN ./venv/bin/python -m pip install --no-cache-dir -r /tmp/requirements.txt
+RUN ./venv/bin/python -m pip install -r /tmp/requirements.txt # --no-cache-dir
 
 # Install databoard core libraries
 COPY ./databoard_core /app/databoard_core/

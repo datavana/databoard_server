@@ -6,10 +6,10 @@ WORKDIR /app
 
 # Install requirements before code so that the Docker layer can be cached if requirements don't change
 COPY ./databoard_core/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt # --no-cache-dir
 
 COPY ./databoard_server/container/fastapi/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt # --no-cache-dir
 
 # Install databoard core libraries
 COPY ./databoard_core /app/databoard_core/
