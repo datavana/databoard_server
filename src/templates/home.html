@@ -25,7 +25,9 @@ With the datavana databoard service you can easily feed content into an LLM for 
     To work with raw LLM prompts and results, provide your own prompt templates and bypass pre- and postprocessing with the summary workflow.
 </p>
 <p>
-Contact the <a href="https://www.uni-muenster.de/Kowi/personen/jakob-juenger.shtml">Digital Media & Computational Methods research unit</a> to get a user account for the service.
+Contact the <a href="https://www.uni-muenster.de/Kowi/personen/jakob-juenger.shtml">Digital Media & Computational Methods research unit</a>
+    to get a user account for the service. Try out the <a href="https://datavana.github.io/databoard_r/">Databoard R package</a>
+    or one of the other options listed below.
 </p>
 
 <h2>How to prepare your data?</h2>
@@ -154,17 +156,39 @@ Contact the <a href="https://www.uni-muenster.de/Kowi/personen/jakob-juenger.sht
 <h2>Let the LLM do the work!</h2>
 
 <p>
-  Processing data with the databoard service is always a two-step procedure: <b>1. Submit tasks</b> and get task IDs, <b>2. Get task results</b> with your task IDs.
-  This approach allows you to submit large samples (each case as a single task), let the service do its work and come back later to retrieve results once they are ready. All users, by now, share a queue and each task is processed one after another.
-    Running jobs for hours or overnight is absolutely fine! In doubt reach out for us to coordinate resources.
+    Processing data with the databoard service is always a two-step procedure:
+    <b>1. Submit tasks</b> and get task IDs,
+    <b>2. Get task results</b> with your task IDs.
+    This approach allows you to submit large samples (each case as a single task),
+    let the service do its work and come back later to retrieve results once they are ready.
+    All users, by now, share a queue and each task is processed one after another.
+    Running jobs for hours or overnight is absolutely fine!
+    In doubt reach out for us to coordinate resources.
 </p>
 
 <p>
-The databoard service provides a simple REST API to push data and get results.
-If you don't want to code yourself, use <a href="https://github.com/strohne/Facepager">Facepager</a> to submit data and fetch results.
-Python scripts are well suited for interacting with the API (see the examples below).
+    The databoard service provides a simple REST API to push data and get results.
+    We prepared an <a href="https://datavana.github.io/databoard_r/">R package</a> to simplify the interaction with the API.
+    If you don't want to code yourself, use <a href="https://github.com/strohne/Facepager">Facepager</a> to submit data and fetch results.
+    Python scripts are well suited for interacting with the API (see the examples below).
     You can try out the API on the <a href="/docs">API documentation page</a> with some examples.
     Read the documentation for further options not explained below.
+</p>
+
+<h3>Getting Started with the Databoard R package</h3>
+
+The R package provides four core functions that all take your data frame as the first argument,
+optionally rules, and return the processed results:
+
+<ul>
+    <li>llm_summarize() is used to condense text into shorter paragraphs. By summarizing to single words, you can, for example, extract topics.
+        The procedure conducts qualitative content analysis using language models.</li>
+    <li>llm_code() assigns predefined categories to a text. Provide a codebook with category names, descriptions, and optionally examples.</li>
+    <li>llm_annotate() adds in-text annotations, for example, to extract person or place names. According to your rule set, you find the matching text segments.</li>
+</ul>
+
+<p>
+See the package documentation for a quick <a href="https://datavana.github.io/databoard_r/articles/gettingstarted.html">introduction</a>.
 </p>
 
 <h3>Getting Started with Facepager</h3>
