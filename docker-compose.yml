@@ -61,6 +61,8 @@ services:
   ollama:
       image: ollama/ollama
       container_name: db_ollama
+      deploy:
+          replicas: 0
       networks:
         - databoard
       ports:
@@ -78,6 +80,8 @@ services:
   webui:
       container_name: db_webui
       image: ghcr.io/open-webui/open-webui:main
+      deploy:
+          replicas: 0
       ports:
           - "8282:8080"
       extra_hosts:
@@ -87,8 +91,6 @@ services:
           - ollama:/app/backend/data
       environment:
           - WEBUI_AUTH=false
-      deploy:
-          replicas: 0
       networks:
         - databoard
       restart: unless-stopped

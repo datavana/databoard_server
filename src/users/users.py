@@ -10,12 +10,16 @@ from passlib.context import CryptContext
 from fastapi import HTTPException, status
 
 class Accounts:
-    def __init__(self):
+    def __init__(self, userFile = None):
 
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         self.accounts = {}
 
-        self.userFile = os.getenv('DATABOARD_USERFILE')
+        if userFile is not None:
+            self.userFile = userFile
+        else:
+            self.userFile = os.getenv('DATABOARD_USERFILE')
+
         os.makedirs(os.path.dirname(self.userFile), exist_ok=True)
         if os.path.exists(self.userFile):
             with open(self.userFile) as f:

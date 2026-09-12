@@ -246,6 +246,26 @@ async def task_add(
     When creating the task, it will directly check the result for this timespan and,
     if possible, return the result with the response.
 
+    If you want to use a custom external LLM server such as Blabador,
+    pass server URL and access token in the options. The access token
+     is stored in the queue broker but not persisted on the server.
+    Furthermore, also make sure to pass a valid model name that is supported by the LLM server.
+    Example:
+    ```
+    {
+      "task": "summarize",
+      "input": ["This is a long text to summarize."],
+
+      "options": {
+          "model": "alias-apertus",
+          "server": {
+            "url": "https://api.blablador.fz-juelich.de/v1/",
+            "accesstoken": "YOURACCESSTOKEN"
+          }
+      }
+    }
+    ```
+
     :param user:
     :param request:
     :param payload:

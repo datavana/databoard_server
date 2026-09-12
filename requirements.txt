@@ -5,7 +5,7 @@ uvicorn
 jinja2
 numpy
 python-multipart
-torch
+#torch
 transformers
 qdrant-client
 openai

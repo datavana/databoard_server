@@ -7,32 +7,41 @@ See the meta repository https://github.com/datavana/databoard for on overview of
 ## Getting started locally
 
 1. Configure the environment:  
-   If you want to work with UniGPT, 
+   If you want to work with UniGPT or another LLM server, 
    copy the `.env.default` file to `.env` and 
-   provide the URL and access token in this file.
+   provide the LLM server URL and access token in this file.
 
-    The server imports the databoard core package.
-    Therefore, it is important to follow the databoard folder structure as described in 
-    the databoard meta package. The server containers use the parent folder
-    as build context and import the databoard_core package from the folder. 
-    Alternatively, adjust the Dockerfiles. 
+   The server imports the databoard core package.
+   Therefore, it is important to follow the databoard folder structure as described in 
+   the databoard meta package. The server containers use the parent folder
+   as build context and import the databoard_core package from the folder. 
+   Alternatively, adjust the Dockerfiles. 
+
+   Create a root user account by following the instructions
+   in `examples/setupusers.py`.
 
 2. Fire up the containers:  
    ```
    docker compose up -d
    ```
-   
-3. Download models:  
-   If you want to use Ollama, install it:
-   ```
-   docker exec -it db_ollama ollama pull llama3.2
-   ```
-4. Open http://localhost:8000
-
+3. Open http://localhost:8000
 
 For trouble shooting, see the logs of the containers.
 
-## Optional containers
+## Ollama containers
+
+ 
+If you want to use Ollama, start the container
+(alternatively, set the replica count of ollama to 1 in the docker-compose.yml):
+
+```
+docker compose up -d --scale ollama=1
+```
+
+Install a model:
+```
+docker exec -it db_ollama ollama pull llama3.2
+```
 
 In addition to the Ollama API, you can start the Ollama Web UI:
 ```
@@ -42,6 +51,7 @@ docker compose up -d --scale webui=1
 Ollama Web UI:  http://localhost:8282/  
 Ollama API: http://localhost:11434/
 
+## Qdrant container
 
 The repository also contains a Qdrant container:
 ```
@@ -103,6 +113,9 @@ User management is simple: All accounts are saved in data/.users/users.json.
   }
 }
 ```
+
+For the initial setup, create a root user account by following the instructions
+in `examples/setupusers.py`. The root user can create other users and manage them.
 
 # Deployment
 

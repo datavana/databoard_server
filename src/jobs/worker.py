@@ -1,4 +1,5 @@
 import os
+
 import numpy as np
 #from kombu import Connection, Queue
 import asyncio
@@ -160,13 +161,13 @@ class BaseTask(Task):
         # Disable reporting
         workflowSettings['reportCodings'] = False
 
-        # Model settings
+        # Answer settings
         workflowSettings['rawAnswer'] = payloadOptions.get('raw', False)
 
-        if payloadOptions.get('model', None) is not None:
-            workflowSettings['model'] = payloadOptions.get('model', None)
-        if payloadOptions.get('temperature', None) is not None:
-            workflowSettings['temperature'] = payloadOptions.get('temperature', None)
+        # Model and server settings
+        for key in ['server', 'model', 'temperature']:
+            if payloadOptions.get(key, None) is not None:
+                workflowSettings[key] = payloadOptions.get(key, None)
 
         return workflowSettings
 
