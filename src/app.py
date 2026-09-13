@@ -247,9 +247,11 @@ async def task_add(
     if possible, return the result with the response.
 
     If you want to use a custom external LLM server such as Blabador,
-    pass server URL and access token in the options. The access token
-     is stored in the queue broker but not persisted on the server.
+    pass server URL and access token in the options. All OpenAI compatible servers are supported.
+    The access token is temporarily stored in the queue broker until a job is picked up by the workers,
+    but it is not persisted on the server.
     Furthermore, also make sure to pass a valid model name that is supported by the LLM server.
+
     Example:
     ```
     {
@@ -272,6 +274,7 @@ async def task_add(
     :param wait Maximum seconds to wait for the task to be finished.
     :return:
     """
+
     # TODO: put user.username in the task data
 
     try:
