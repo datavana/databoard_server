@@ -1,4 +1,12 @@
+/* Theme Variables */
+:root {
+    /* Colors - Brand */
+    --color-primary: #4CAF50;
+    --color-primary-hover: #45a049;
+}
+
 /* Common */
+
 body {
     font-family: Arial, sans-serif;
     margin: 0;
@@ -8,7 +16,7 @@ body {
 h2 {
     padding:0.2em;
     margin:1.5em 0 0.5em 0;
-    background-color: #4caf50;
+    background-color: var(--color-primary);
     color: white;
     font-weight: normal;
 }
@@ -65,16 +73,23 @@ pre {
 
 /* Layout */
 header {
-    background-color: #4CAF50;
-    padding: 1.5em;
+    background-color: var(--color-primary);
+    padding: 1.0em;
     color: white;
     display: flex;
+    height: 3em;
 }
 
 header h1 {
     flex: 1;
     margin:0;
     font-size: 2em;
+    line-height: 1.5em;
+}
+
+header img {
+    padding: 0.5em;
+    margin-right: 1em;
 }
 
 header div {
@@ -109,14 +124,14 @@ textarea, textarea:focus, textarea:focus-visible, textarea:active {
 
 button {
     padding: 10px 20px;
-    background-color: #4CAF50;
+    background-color: var(--color-primary);
     color: white;
     border: none;
     cursor: pointer;
 }
 
 button:hover {
-    background-color: #45a049;
+    background-color: var(--color-hover);
 }
 
 button.wide {
