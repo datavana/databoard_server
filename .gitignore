@@ -11,12 +11,13 @@ container/webui/data/*
 !container/ollama/data/.gitkeep
 !container/webui/data/.gitkeep
 
-data/*
+data/*/*
 !data/readme.md
 !data/.cache/.gitkeep
 !data/.logs/.gitkeep
 !data/.jobs/.gitkeep
 !data/.users/.gitkeep
+!data/.users/users.example.json
 
 settings.py
 settings.R

@@ -1,0 +1,36 @@
+{
+  "root": {
+    "username": "root",
+    "fullname": "Root User",
+    "email": "",
+    "usertype": "admin",
+    "password": "xxx",
+    "disabled": false
+  },
+  "test": {
+    "username": "test",
+    "fullname": "Test User",
+    "email": "",
+    "usertype": "human",
+    "password": "xxx",
+    "disabled": false,
+    "tokenVersion": 1,
+    "tokenExpires": true,
+    "rateLimit": {
+      "default": { "requests": 60, "window_seconds": 60 },
+      "/tasks/run": { "requests": 60, "window_seconds": 60 },
+      "/tasks/run/{task_id}": { "requests": 60, "window_seconds": 60 },
+      "/token": { "requests": 5, "window_seconds": 60 }
+    }
+  },
+  "epigraf.uni-muenster.de": {
+    "username": "epigraf.uni-muenster.de",
+    "fullname": "Epigraf",
+    "email": "",
+    "usertype": "bot",
+    "password": "xxx",
+    "disabled": false,
+    "tokenVersion": 1,
+    "tokenExpires": false
+  }
+}
