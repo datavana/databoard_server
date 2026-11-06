@@ -303,7 +303,7 @@ async def task_add(
             result = await worker.getStatus(batch.id, wait)
             return results.to_response(result, batch.id)
         else:
-            raise ValueError("Unsupported task type")
+            raise worker.InvalidRequest(f"Unsupported task type '{payload.task}'")
 
         result = await worker.getStatus(task.id, wait)
         return results.to_response(result, task.id)
