@@ -4,7 +4,7 @@ import numpy as np
 #from kombu import Connection, Queue
 import asyncio
 
-from celery import Celery, Task
+from celery import Celery, Task, group
 from celery.result import AsyncResult
 from celery.app import trace
 
@@ -12,6 +12,8 @@ from databoard_core.flows import CodingWorkflow
 from databoard_core.flows import SummaryWorkflow
 from databoard_core.flows import AnnoWorkflow
 from databoard_core.flows import TripleWorkflow
+from databoard_core.flows import ParseWorkflow
+from databoard_core.clients import has_parser
 
 # Remove data from log
 trace.LOG_SUCCESS = """\
@@ -19,13 +21,14 @@ Task %(name)s[%(id)s] succeeded in %(runtime)ss\
 """
 
 # Start Celery
-os.makedirs('/app/data/.jobs', exist_ok=True)
+jobsFolder = os.getenv('DATABOARD_JOBS_FOLDER', '/app/data/.jobs')
+os.makedirs(jobsFolder, exist_ok=True)
 brokerHost = os.getenv('RABBITMQ_HOST', 'rabbitmq')
 brokerUrl = 'amqp://guest:guest@' + brokerHost
 celery = Celery(
     'tasks',
     broker=brokerUrl,
-    backend='file:///app/data/.jobs'
+    backend='file://' + jobsFolder
 )
 
 async def getQueueLength():
@@ -247,3 +250,62 @@ def triples(self, data, options={}):
     triples = self.wf.parseTriples(result.llm_result)
 
     return {'answers': triples}
+
+
+class InvalidRequest(ValueError):
+    """
+    The task request is invalid and the client has to correct it.
+    """
+
+
+class ParseTask(BaseTask):
+    _workflowClass = ParseWorkflow
+
+    def prepareSettings(self, payloadOptions):
+        return {
+            'formalism': payloadOptions.get('formalism'),
+            'dialect': payloadOptions.get('dialect'),
+            'rules': payloadOptions.get('rules')
+        }
+
+@celery.task(bind=True, base=ParseTask)
+def parse(self, text, options={}):
+    """
+    Parse a single text.
+
+    :param text: The text to parse
+    :param options: formalism, dialect and rules
+    :return: A dict with the keys xml, errors and failed
+    """
+    workflowSettings = self.prepareSettings(options)
+    return self.wf.dataToData([text], workflowSettings)[0]
+
+
+def submitParse(inputs, options):
+    """
+    Start one parse task per input, bundled as a group.
+    The group is saved so that it can be restored by its id.
+
+    :param inputs: A string or a list of strings
+    :param options: formalism, dialect and rules
+    :return: The group result. Its id identifies the whole batch.
+    :raises InvalidRequest: If an option is missing, or no parser exists for formalism and dialect
+    """
+    inputs = [inputs] if isinstance(inputs, str) else inputs
+    if len(inputs) == 0:
+        raise InvalidRequest("No input")
+
+    for name in ('formalism', 'dialect'):
+        if not options.get(name):
+            raise InvalidRequest(f"Missing option '{name}'")
+        if not isinstance(options[name], str):
+            raise InvalidRequest(f"Option '{name}' must be a string")
+
+    formalism, dialect = options['formalism'], options['dialect']
+    if not has_parser(formalism, dialect):
+        raise InvalidRequest(f"No parser for formalism '{formalism}' and dialect '{dialect}'")
+
+    taskOptions = {key: options.get(key) for key in ('formalism', 'dialect', 'rules')}
+    batch = group(parse.s(text, taskOptions) for text in inputs).apply_async()
+    batch.save()
+    return batch
