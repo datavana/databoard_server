@@ -211,7 +211,11 @@ async def task_add(
     - dialect: The notation of the input texts, for example 'dio'.
     - rules: Reserved for later use. The value is accepted but not processed yet.
     The input is split into one task per text. The response identifies the whole batch
-    with a single id, as for all other tasks.
+    with a single id, as for all other tasks. When getting the task status, the result
+    is a list with one entry per input in input order, including the entries that are
+    already finished while the batch is still pending. Each entry has its own state,
+    an input with parse errors has the state FAILURE. The overall state is PENDING while
+    any input is pending, then SUCCESS, MIXED (some inputs failed) or FAILURE (all inputs failed).
 
     The following options are supported for all LLM task types:
     - model: The model to use, overrides the server default.
@@ -296,7 +300,7 @@ async def task_add(
             task = worker.annotate.delay(payload.input, payload.options)
         elif payload.task == 'parse':
             batch = worker.submitParse(payload.input, payload.options)
-            result = {"state": "PENDING", "task_id": batch.id}
+            result = await worker.getStatus(batch.id, wait)
             return results.to_response(result, batch.id)
         else:
             raise ValueError("Unsupported task type")
