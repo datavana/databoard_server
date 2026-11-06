@@ -28,8 +28,8 @@ def restoreBatch(batchId):
 
 
 # A list of inputs is accepted with 202, one id and a Location to that id, so the client sees a single batch and not a list of task ids.
-def test_list_of_inputs_returns_202_with_one_id_and_location(client):
-    response = postParse(client, ['a', 'b', 'c'])
+def test_list_of_inputs_returns_202_with_one_id_and_location(pendingClient):
+    response = postParse(pendingClient, ['a', 'b', 'c'])
 
     assert response.status_code == 202
     body = response.json()
@@ -60,7 +60,8 @@ def test_tasks_parse_their_input_in_input_order(client):
 def test_single_string_runs_as_group_of_one(client):
     response = postParse(client, 'only')
 
-    assert response.status_code == 202
+    assert response.status_code == 200
+    assert len(response.json()['result']) == 1
     batch = restoreBatch(response.json()['task_id'])
     assert len(batch.results) == 1
     assert batch.results[0].get()['xml'] == '<stub>only</stub>'
@@ -70,7 +71,8 @@ def test_single_string_runs_as_group_of_one(client):
 def test_rules_are_accepted(client):
     response = postParse(client, ['a'], {'formalism': 'stub', 'dialect': 'test', 'rules': {'x': 1}})
 
-    assert response.status_code == 202
+    assert response.status_code == 200
+    assert response.json()['state'] == 'SUCCESS'
 
 
 # A missing formalism answers 400 with a message naming the field, so a client notices its mistake at once.
