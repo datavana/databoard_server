@@ -182,7 +182,7 @@ async def task_add(
     Generate a task
 
     Post a JSON document with the following keys to create a task:
-    - task: The task type, one of 'summarize', 'coding', 'annotate' or 'triples'.
+    - task: The task type, one of 'summarize', 'coding', 'annotate', 'triples' or 'parse'.
     - input: The input text as a string or a list of strings.
     - options: Additional configuration (optional).
 
@@ -205,7 +205,15 @@ async def task_add(
             The example should contain comma separated text segments that match the rule.
             The category will be used as value attribute in the annotation.
 
-    The following options are supported for all task types:
+    The parse task parses the input texts and returns XML. It does not use a LLM.
+    It requires the following options. Otherwise, the request is rejected with status 400:
+    - formalism: The kind of the parser, for example 'ebnf'.
+    - dialect: The notation of the input texts, for example 'dio'.
+    - rules: Reserved for later use. The value is accepted but not processed yet.
+    The input is split into one task per text. The response identifies the whole batch
+    with a single id, as for all other tasks.
+
+    The following options are supported for all LLM task types:
     - model: The model to use, overrides the server default.
              Candidates are: 'Llama-3.3-70B' (default), 'mistral-small',
                              'gemma-3-27b-it', 'gemma-3',
@@ -286,12 +294,18 @@ async def task_add(
             task = worker.triples.delay(payload.input, payload.options)
         elif payload.task == 'annotate':
             task = worker.annotate.delay(payload.input, payload.options)
+        elif payload.task == 'parse':
+            batch = worker.submitParse(payload.input, payload.options)
+            result = {"state": "PENDING", "task_id": batch.id}
+            return results.to_response(result, batch.id)
         else:
             raise ValueError("Unsupported task type")
 
         result = await worker.getStatus(task.id, wait)
         return results.to_response(result, task.id)
 
+    except worker.InvalidRequest as e:
+        return results.to_error_response(str(e), 400)
     except ValueError as e:
         result = {"state": "FAILURE", "msg": str(e)}
     except Exception as e:
