@@ -5,7 +5,7 @@ import numpy as np
 import asyncio
 
 from celery import Celery, Task, group
-from celery.result import AsyncResult
+from celery.result import AsyncResult, GroupResult
 from celery.app import trace
 
 from databoard_core.flows import CodingWorkflow
@@ -81,14 +81,85 @@ def _derive_result_state(task_state, task_info):
     return task_state
 
 
+def _derive_entry(task):
+    """
+    Get the state and result of a single task of a batch.
+
+    :param task: An AsyncResult
+    :return: A dict with the state and, if the task is finished, the result or an error message.
+    """
+    if not task.ready():
+        return {"state": "PENDING"}
+
+    info = task.info
+    if isinstance(info, dict):
+        # An input with error or fatal entries counts as failed
+        return {"state": "FAILURE" if info.get('failed') else "SUCCESS", "result": info}
+
+    entry = {"state": "FAILURE"}
+    if isinstance(info, Exception):
+        entry["msg"] = str(info)
+    return entry
+
+
+def _derive_batch_state(entries):
+    """
+    Derive the overall state of a batch from the states of its entries.
+
+    :param entries: A list of entries with a state
+    :return: PENDING while any entry is pending, then SUCCESS, MIXED or FAILURE
+    """
+    states = [entry["state"] for entry in entries]
+    if "PENDING" in states:
+        return "PENDING"
+
+    failed = states.count("FAILURE")
+    if failed == 0:
+        return "SUCCESS"
+    if failed == len(states):
+        return "FAILURE"
+    return "MIXED"
+
+
+async def getBatchStatus(batch, wait=0):
+    """
+    Get the status of a batch of tasks (a group), see submitParse().
+
+    :param batch: A GroupResult
+    :param wait: If the batch is pending, maximum waiting seconds before the function returns.
+    :return: A dict with the overall state and one entry per input in input order.
+             The entries of finished inputs are included while the batch is still pending.
+    """
+    if wait > 0:
+        start_time = asyncio.get_event_loop().time()
+        while (asyncio.get_event_loop().time() - start_time) < wait:
+            if batch.ready():
+                break
+            await asyncio.sleep(0.5)
+
+    entries = [_derive_entry(task) for task in batch.results]
+    return {
+        "state": _derive_batch_state(entries),
+        "task_id": batch.id,
+        "result": entries
+    }
+
+
 async def getStatus(task_id, wait=0):
     """
     Get the task status.
+
+    The id may identify a batch of tasks (a group) or a single task.
 
     :param task_id:
     :param wait: If the task is pending, maximum waiting seconds before the function returns.
     :return:
     """
+
+    # A group id queried as a single task would stay pending forever, so check for groups first
+    batch = GroupResult.restore(task_id, app=celery)
+    if batch is not None:
+        return await getBatchStatus(batch, wait)
 
     task = AsyncResult(task_id, app=celery)
 
