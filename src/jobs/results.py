@@ -27,3 +27,18 @@ def to_response(result, task_id = None):
         )
 
     return response
+
+
+def to_error_response(msg, status_code=400):
+    """
+    Create a JSON error response for a request that can't be processed.
+
+    :param msg: The error message
+    :param status_code: The HTTP status code
+    :return: A response
+    """
+    return Response(
+        content=json.dumps({"state": "FAILURE", "msg": msg}),
+        status_code=status_code,
+        media_type="application/json"
+    )
