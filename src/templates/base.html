@@ -8,11 +8,22 @@
 </head>
 <body>
     <header>
-        <img src="/static/img/logo_white.png" alt="Databoard Logo">
+        <img class="brand-logo" src="/static/img/logo_white.png" alt="Databoard Logo">
         <h1>Datavana Databoard</h1>
         {% if taskcount is defined and taskcount is not none %}
         <div class="state">{{ taskcount }} tasks in the queue</div>
         {% endif %}
+        <nav class="header-links" aria-label="Project links">
+            <a href="https://github.com/datavana/databoard" target="_blank" rel="noopener noreferrer" title="GitHub">
+                <img src="/static/img/github-white.svg" alt="GitHub">
+            </a>
+            <a href="https://datavana.github.io/databoard_r/" target="_blank" rel="noopener noreferrer" title="R package">
+                <img src="/static/img/r-white.svg" alt="R">
+            </a>
+            <a href="https://databoard.uni-muenster.de/docs" target="_blank" rel="noopener noreferrer" title="API documentation">
+                <img src="/static/img/api-white.svg" alt="API">
+            </a>
+        </nav>
     </header>
     <main>
         {% block content %}{% endblock %}

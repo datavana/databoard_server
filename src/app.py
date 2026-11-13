@@ -36,9 +36,6 @@ app.mount("/static", StaticFiles(directory="src/static"), name="static")
 # Set up templates directory
 templates = Jinja2Templates(directory="src/templates")
 
-# Will hold our Llm client
-myLlmClient = None
-
 # Default limits; each user can override these in their account `rateLimit` field.
 DEFAULT_RATE_LIMIT: Dict[str, Dict[str, int]] = {
     "default": {"requests": 180, "seconds": 60},

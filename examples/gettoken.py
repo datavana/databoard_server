@@ -12,7 +12,7 @@ import requests
 # - Install python-dotenv:
 #   pip install python-dotenv
 import dotenv
-dotenv.load_dotenv(".env")
+dotenv.load_dotenv("databoard_server/.env")
 
 #baseurl = "https://databoard.uni-muenster.de"
 baseurl = "http://localhost:8000"

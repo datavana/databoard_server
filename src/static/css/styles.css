@@ -77,23 +77,51 @@ header {
     padding: 1.0em;
     color: white;
     display: flex;
-    height: 3em;
+    align-items: center;
+    min-height: 3em;
 }
 
 header h1 {
     flex: 1;
     margin:0;
-    font-size: 2em;
+    min-width: 0;
+    font-size: clamp(1.2em, 4.5vw, 2em);
     line-height: 1.5em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-header img {
-    padding: 0.5em;
+header .brand-logo {
+    height: clamp(1.4em, 6vw, 2.2em);
+    width: auto;
+    flex-shrink: 0;
+    padding: clamp(0.2em, 1.2vw, 0.5em);
     margin-right: 1em;
 }
 
-header div {
+header .state {
     line-height: 2.3em;
+}
+
+header .header-links {
+    display: flex;
+    align-items: center;
+    gap: 1em;
+    margin-left: 1em;
+}
+
+header .header-links a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    text-decoration: none;
+}
+
+header .header-links img {
+    width: 1.7em;
+    height: 1.7em;
 }
 
 main {
@@ -131,7 +159,7 @@ button {
 }
 
 button:hover {
-    background-color: var(--color-hover);
+    background-color: var(--color-primary-hover);
 }
 
 button.wide {
